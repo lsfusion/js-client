@@ -2,33 +2,33 @@
 function create(setState, baseUrl, formData) {
     setState(prevState => {
         const url = baseUrl + '/form';
-    const form = guidGenerator();
+        const form = guidGenerator();
 
-    fetchJSONRequest(url, {
-        action: 'create',
-        form: form,
-        //navigator : 'external', //optional
-        data: formData
-    }, response => {
-        createReceived(response, setState);
-});
+        fetchJSONRequest(url, {
+            action: 'create',
+            form: form,
+            //navigator : 'external', //optional
+            data: formData
+        }, response => {
+            createReceived(response, setState);
+        });
 
-    return {
-        url : url,
-        form : form,
-        requestIndex : -1, // last sent request index
-        lastReceivedRequestIndex : -2,
-        pendingChanges : []
-    };
-});
+        return {
+            url : url,
+            form : form,
+            requestIndex : -1, // last sent request index
+            lastReceivedRequestIndex : -2,
+            pendingChanges : []
+        };
+    });
 }
 
 function createReceived(response, setState) {
     setState(prevState => {
         // it's always first to be proceed
         fetchNewIds(setState, prevState);
-    return {...response.initial, lastReceivedRequestIndex: -1, genIDs: [], usedGenID: 0, meta: response.meta};
-});
+        return {...response.initial, lastReceivedRequestIndex: -1, genIDs: [], usedGenID: 0, meta: response.meta};
+    });
 }
 
 // need this to have nulls and not undef
@@ -55,15 +55,15 @@ function fetchNewIds(setState, prevState) {
             count: count
         }, response => {
             setState(prevState => {
-            let newGenIDs = [...prevState.genIDs]; // cutting used and adding new
-        newGenIDs.splice(0, prevState.usedGenID);
-        newGenIDs = newGenIDs.concat(response);
-        return {
-            usedGenID: 0,
-            genIDs: newGenIDs
-        }
-    });
-    });
+                let newGenIDs = [...prevState.genIDs]; // cutting used and adding new
+                newGenIDs.splice(0, prevState.usedGenID);
+                newGenIDs = newGenIDs.concat(response);
+                return {
+                    usedGenID: 0,
+                    genIDs: newGenIDs
+                }
+            });
+        });
     }
 }
 
@@ -122,26 +122,26 @@ function change(setState, changes, currentState) {
     setState(prevState => {
 
         let updateState = {};
-    if(prevState.lastReceivedRequestIndex === -2 || !modifyCurrentGroupObjects(setState, prevState, changes, updateState)) { // form is not created yet or we have no new ids
-        postpone(() => change(setState, changes, currentState));
+        if(prevState.lastReceivedRequestIndex === -2 || !modifyCurrentGroupObjects(setState, prevState, changes, updateState)) { // form is not created yet or we have no new ids
+            postpone(() => change(setState, changes, currentState));
+            return updateState;
+        }
+
+        const requestIndex = prevState.requestIndex + 1;
+
+        fetchJSONRequest(prevState.url, {
+            action: 'change',
+            form: prevState.form,
+            requestIndex: requestIndex,
+            lastReceivedRequestIndex: prevState.lastReceivedRequestIndex,
+            data: changes
+        }, response => changeReceived(response, setState, requestIndex));
+
+        updateState.requestIndex = requestIndex;
+        updateRequest(updateState, prevState, changes);
+        updateState.pendingChanges  = prevState.pendingChanges.concat(changes);
         return updateState;
-    }
-
-    const requestIndex = prevState.requestIndex + 1;
-
-    fetchJSONRequest(prevState.url, {
-        action: 'change',
-        form: prevState.form,
-        requestIndex: requestIndex,
-        lastReceivedRequestIndex: prevState.lastReceivedRequestIndex,
-        data: changes
-    }, response => changeReceived(response, setState, requestIndex));
-
-    updateState.requestIndex = requestIndex;
-    updateRequest(updateState, prevState, changes);
-    updateState.pendingChanges  = prevState.pendingChanges.concat(changes);
-    return updateState;
-});
+    });
 }
 
 function postpone(action) {
@@ -159,16 +159,16 @@ function numberOfPendingRequests(state) {
 function changeReceived(response, setState, requestIndex) {
     setState(prevState => {
         if (prevState.lastReceivedRequestIndex + 1 < requestIndex) { // if it's not the last request, will wait and proceed next time
-        postpone(() => { changeReceived(response, setState, requestIndex) });
-        return {}; // no changes
-    }
+            postpone(() => { changeReceived(response, setState, requestIndex) });
+            return {}; // no changes
+        }
 
-    let updateState = { lastReceivedRequestIndex : requestIndex };
-    let responseModify = response.modify;
-    updateResponse(updateState, prevState, responseModify);
-    modifyPendingResponse(updateState, prevState, responseModify); // modify response with future changes
-    return updateState;
-});
+        let updateState = { lastReceivedRequestIndex : requestIndex };
+        let responseModify = response.modify;
+        updateResponse(updateState, prevState, responseModify);
+        modifyPendingResponse(updateState, prevState, responseModify); // modify response with future changes
+        return updateState;
+    });
 }
 
 // optimization checks if change consists only from current group object value
@@ -374,7 +374,7 @@ function fetchJSONRequest(url, request, onSuccess) {
     };
     try {
         fetch(url, params).then(response => response.json())
-    .then(response => onSuccess(response));
+            .then(response => onSuccess(response));
     } catch (e) {
         console.log(e);
     }
@@ -384,17 +384,17 @@ function close(setState) {
     setState(prevState => {
 
         if(prevState.lastReceivedRequestIndex !== prevState.requestIndex) { // there are pending change requests
-        postpone(() => close(setState));
-        return {};
-    }
+            postpone(() => close(setState));
+            return {};
+        }
 
-    fetchJSONRequest(prevState.url, {
-        action: 'close',
-        form: prevState.form,
-    }, response => {
+        fetchJSONRequest(prevState.url, {
+            action: 'close',
+            form: prevState.form,
+        }, response => {
+        });
+        return {};
     });
-    return {};
-});
 }
 
 function guidGenerator() {
@@ -415,4 +415,4 @@ function guidGenerator() {
 //     return JSON.parse(xhr.response);  //parse response
 // }
 
-export { create, change, close, equals, formCreated, numberOfPendingRequests };
+export { create, change, close, equals, formCreated, numberOfPendingRequests};
